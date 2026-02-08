@@ -14,7 +14,13 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-const Pill = ({ active, onClick, children }) => (
+type PillProps = {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+};
+
+const Pill = ({ active, onClick, children }: PillProps) => (
   <Button
     variant="outline"
     type="button"
