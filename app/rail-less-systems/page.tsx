@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,39 @@ const Pill = ({ active, onClick, children }: PillProps) => (
   </Button>
 );
 
+type ValidationStatus = "pass" | "fail" | "warn";
+
+const StatusBadge = ({
+  status,
+  value,
+}: {
+  status: ValidationStatus;
+  value: string;
+}) => {
+  const styles =
+    status === "pass"
+      ? "bg-[#0A7A1C]"
+      : status === "fail"
+        ? "bg-[#E11818]"
+        : "bg-[#FF8A3D]";
+
+  const glyph = status === "pass" ? "✓" : status === "fail" ? "✕" : "!";
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={cn(
+          "h-6 w-6 rounded-full flex items-center justify-center text-white text-[14px] leading-none",
+          styles,
+        )}
+      >
+        {glyph}
+      </div>
+      <span className="text-sm text-white">{value}</span>
+    </div>
+  );
+};
+
 export default function RailLessSystemsPage() {
   // top selects
   const [country, setCountry] = useState("");
@@ -45,7 +78,9 @@ export default function RailLessSystemsPage() {
   const [moduleLength, setModuleLength] = useState("2.4");
 
   // roof type + coverage
-  const [roofType, setRoofType] = useState("Gable");
+  const [roofType, setRoofType] = useState<"Gable" | "Monoslope" | "Hip">(
+    "Gable",
+  );
   const [roofCoverage, setRoofCoverage] = useState("Standing Seam Metal");
 
   // environmental
@@ -56,7 +91,7 @@ export default function RailLessSystemsPage() {
   // system configuration
   const [buildingHeight, setBuildingHeight] = useState("10");
   const [groundElevation, setGroundElevation] = useState("2250");
-  const [roofSlope, setRoofSlope] = useState("20–27");
+  const [roofSlope, setRoofSlope] = useState(""); // will be set based on roofType
   const [moduleWeight, setModuleWeight] = useState("35");
   const [roofThickness, setRoofThickness] = useState("0.4");
   const [attachmentThickness, setAttachmentThickness] = useState("0.7");
@@ -75,14 +110,84 @@ export default function RailLessSystemsPage() {
     e3: "4",
   });
 
-  const [screwsPerAttachment, setScrewsPerAttachment] = useState({
-    z1: "2",
-    e1: "2",
-    z2: "2",
-    e2: "2",
-    z3: "2",
-    e3: "2",
-  });
+  // FIXED SCREWS PER ATTACHMENT (depends on mounting system type)
+  const fixedScrewsPerAttachment = useMemo(() => {
+    const t = (mountingType || "").toLowerCase();
+    if (t.includes("micro")) return "4";
+    if (t.includes("mini")) return "2";
+    if (t.includes("kr18") || t.includes("kr 18")) return "1";
+    return "2";
+  }, [mountingType]);
+
+  // Roof slope options depend on roof type
+  const roofSlopeOptions = useMemo(() => {
+    if (roofType === "Gable") return ["0–7", "7–20", "20–27", "27–45"];
+    if (roofType === "Monoslope") return ["3–10", "10–30"];
+    return ["7–20", "20–27", "27–45"]; // Hip
+  }, [roofType]);
+
+  // keep roofSlope valid when roofType changes
+  useEffect(() => {
+    if (!roofSlopeOptions.includes(roofSlope)) {
+      setRoofSlope(roofSlopeOptions[0] ?? "");
+    }
+  }, [roofType, roofSlopeOptions, roofSlope]);
+
+  // RESULTS (UI data)
+  // NOTE: downforce & shear are grouped into 3 rows (Z1/E1, Z2/E2, Z3/E3)
+  const resultsRows = useMemo(
+    () => [
+      {
+        label: "Zone 1",
+        uplift: "13.31",
+        downforce: "28.83",
+        shear: "5.99",
+        status: "pass" as const,
+        validation: "7%",
+      },
+      {
+        label: "Exposed 1",
+        uplift: "24.65",
+        downforce: "28.83",
+        shear: "5.99",
+        status: "fail" as const,
+        validation: "12%",
+      },
+      {
+        label: "Zone 2",
+        uplift: "28.43",
+        downforce: "28.83",
+        shear: "5.99",
+        status: "warn" as const,
+        validation: "13%",
+      },
+      {
+        label: "Exposed 2",
+        uplift: "47.32",
+        downforce: "28.83",
+        shear: "5.99",
+        status: "pass" as const,
+        validation: "21%",
+      },
+      {
+        label: "Zone 3",
+        uplift: "35.98",
+        downforce: "28.83",
+        shear: "5.99",
+        status: "pass" as const,
+        validation: "17%",
+      },
+      {
+        label: "Exposed 3",
+        uplift: "58.65",
+        downforce: "28.83",
+        shear: "5.99",
+        status: "pass" as const,
+        validation: "26%",
+      },
+    ],
+    [],
+  );
 
   const reset = () => {
     setCountry("");
@@ -97,7 +202,7 @@ export default function RailLessSystemsPage() {
     setSnowLoad("0");
     setBuildingHeight("10");
     setGroundElevation("2250");
-    setRoofSlope("20–27");
+    // roofSlope will auto-adjust via effect based on roofType
     setModuleWeight("35");
     setRoofThickness("0.4");
     setAttachmentThickness("0.7");
@@ -109,15 +214,11 @@ export default function RailLessSystemsPage() {
       z3: "4",
       e3: "4",
     });
-    setScrewsPerAttachment({
-      z1: "2",
-      e1: "2",
-      z2: "2",
-      e2: "2",
-      z3: "2",
-      e3: "2",
-    });
   };
+
+  // slightly lighter grid lines so they are visible
+  const GRID = "border-[#3A3A3A]";
+  const HEAD_BG = "bg-[#0A0A0A]/20";
 
   return (
     <div
@@ -212,11 +313,13 @@ export default function RailLessSystemsPage() {
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["Kr18 System", "Mini Rail System", "Micro Rail System"].map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
+                      {["Kr18 System", "Mini Rail System", "Micro Rail System"].map(
+                        (opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
+                          </SelectItem>
+                        ),
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -261,7 +364,7 @@ export default function RailLessSystemsPage() {
                 <div>
                   <Label>Roof Type</Label>
                   <div className="flex gap-4 mt-1">
-                    {["Hip", "Gable", "Monoslope"].map((v) => (
+                    {(["Hip", "Gable", "Monoslope"] as const).map((v) => (
                       <Pill
                         key={v}
                         active={roofType === v}
@@ -331,6 +434,7 @@ export default function RailLessSystemsPage() {
                     ))}
                   </div>
                 </div>
+
                 <div>
                   <Label>Snow Load (Pa)</Label>
                   <div className="relative mt-1 flex-1">
@@ -346,8 +450,9 @@ export default function RailLessSystemsPage() {
               </div>
             </div>
           </div>
+
+          {/* SYSTEM CONFIGURATION */}
           <div>
-            {/* SYSTEM CONFIGURATION */}
             <h1 className="text-base font-semibold text-center mb-2">
               SYSTEM CONFIGURATION
             </h1>
@@ -366,6 +471,7 @@ export default function RailLessSystemsPage() {
                     <span className="absolute right-4 top-3 text-sm">m</span>
                   </div>
                 </div>
+
                 <div>
                   <Label>Ground Elevation</Label>
                   <div className="relative mt-1">
@@ -386,7 +492,7 @@ export default function RailLessSystemsPage() {
                       <SelectValue placeholder="Select Roof Slope" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["0–10", "10–20", "20–27", "27–35"].map((opt) => (
+                      {roofSlopeOptions.map((opt) => (
                         <SelectItem key={opt} value={opt}>
                           {opt}
                         </SelectItem>
@@ -412,17 +518,14 @@ export default function RailLessSystemsPage() {
 
                 <div>
                   <Label>Roof Thickness(mm)</Label>
-                  <Select
-                    value={roofThickness}
-                    onValueChange={setRoofThickness}
-                  >
+                  <Select value={roofThickness} onValueChange={setRoofThickness}>
                     <SelectTrigger className="h-11 rounded-full">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["0.4", "0.5", "0.6"].map((opt) => (
+                      {["0.4", "0.5", "0.55", "0.63", "0.75", "0.88", "1", "1.13", "1.25"].map((opt) => (
                         <SelectItem key={opt} value={opt}>
-                          {opt}
+                          {opt}mm
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -450,6 +553,7 @@ export default function RailLessSystemsPage() {
               </div>
             </div>
           </div>
+
           {/* FASTENING CONFIGURATION */}
           <div>
             <h1 className="text-base font-semibold text-center mb-2">
@@ -482,8 +586,8 @@ export default function RailLessSystemsPage() {
                   ["e3", attachmentsPerModule.e3],
                 ].map(([key, val]) => (
                   <Select
-                    key={key}
-                    value={val}
+                    key={String(key)}
+                    value={String(val)}
                     onValueChange={(v) =>
                       setAttachmentsPerModule((p) => ({ ...p, [key]: v }))
                     }
@@ -502,40 +606,177 @@ export default function RailLessSystemsPage() {
                 ))}
               </div>
 
+              {/* Screws per Attachment (FIXED, no dropdown) */}
               <div className="grid grid-cols-[160px_repeat(6,minmax(0,1fr))] gap-3 items-center">
                 <div className="text-xs text-[#FCFCFC]/85">
                   Screws per Attachment
                 </div>
-                {[
-                  ["z1", screwsPerAttachment.z1],
-                  ["e1", screwsPerAttachment.e1],
-                  ["z2", screwsPerAttachment.z2],
-                  ["e2", screwsPerAttachment.e2],
-                  ["z3", screwsPerAttachment.z3],
-                  ["e3", screwsPerAttachment.e3],
-                ].map(([key, val]) => (
-                  <Select
-                    key={key}
-                    value={val}
-                    onValueChange={(v) =>
-                      setScrewsPerAttachment((p) => ({ ...p, [key]: v }))
-                    }
-                  >
-                    <SelectTrigger className="h-11 rounded-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["1", "2", "3", "4"].map((n) => (
-                        <SelectItem key={n} value={n}>
-                          {n}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                {cols.map((col) => (
+                  <div key={col} className="w-full">
+                    <Input
+                      value={fixedScrewsPerAttachment}
+                      disabled
+                      className={cn(
+                        "h-11 rounded-full text-center",
+                        "disabled:opacity-100 disabled:cursor-not-allowed",
+                        "bg-[#0B0B0B]/40 border border-[#2A2A2A] text-white/90",
+                      )}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
           </div>
+
+          {/* RESULTS */}
+          <div>
+            <h1 className="text-base font-semibold text-center mb-2">RESULTS</h1>
+
+            <div className="w-full bg-[#0F0F0F59] border border-[#1F1F1F] rounded-[32px] overflow-hidden">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full min-w-[980px] border-collapse">
+                  <thead>
+                    <tr className={HEAD_BG}>
+                      <th
+                        className={cn(
+                          "text-left font-medium text-[14px] text-white/90",
+                          "px-6 py-4",
+                          "border-b",
+                          GRID,
+                          "border-r",
+                          GRID,
+                        )}
+                      />
+                      <th
+                        className={cn(
+                          "text-left font-medium text-[14px] text-white/90",
+                          "px-6 py-4",
+                          "border-b",
+                          GRID,
+                          "border-r",
+                          GRID,
+                        )}
+                      >
+                        Uplift Load per Attachment (kg)
+                      </th>
+                      <th
+                        className={cn(
+                          "text-left font-medium text-[14px] text-white/90",
+                          "px-6 py-4",
+                          "border-b",
+                          GRID,
+                          "border-r",
+                          GRID,
+                        )}
+                      >
+                        Downforce Load per Attachment (kg)
+                      </th>
+                      <th
+                        className={cn(
+                          "text-left font-medium text-[14px] text-white/90",
+                          "px-6 py-4",
+                          "border-b",
+                          GRID,
+                          "border-r",
+                          GRID,
+                        )}
+                      >
+                        Shear Load per Attachment (kg)
+                      </th>
+                      <th
+                        className={cn(
+                          "text-left font-medium text-[14px] text-white/90",
+                          "px-6 py-4",
+                          "border-b",
+                          GRID,
+                        )}
+                      >
+                        Validation
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {resultsRows.map((r, idx) => {
+                      const isPairTop = idx % 2 === 0;
+                      const isLast = idx === resultsRows.length - 1;
+                      const showGrouped = isPairTop;
+
+                      return (
+                        <tr key={r.label}>
+                          <td
+                            className={cn(
+                              "px-6 py-4 font-medium text-white/95",
+                              "border-r",
+                              GRID,
+                              !isLast && "border-b",
+                              !isLast && GRID,
+                            )}
+                          >
+                            {r.label}
+                          </td>
+
+                          <td
+                            className={cn(
+                              "px-6 py-4 text-white/90",
+                              "border-r",
+                              GRID,
+                              !isLast && "border-b",
+                              !isLast && GRID,
+                            )}
+                          >
+                            {r.uplift}
+                          </td>
+
+                          {showGrouped && (
+                            <td
+                              rowSpan={2}
+                              className={cn(
+                                "px-6 py-4 text-white/90 align-middle",
+                                "border-r",
+                                GRID,
+                                idx < resultsRows.length - 2 && "border-b",
+                                idx < resultsRows.length - 2 && GRID,
+                              )}
+                            >
+                              {r.downforce}
+                            </td>
+                          )}
+
+                          {showGrouped && (
+                            <td
+                              rowSpan={2}
+                              className={cn(
+                                "px-6 py-4 text-white/90 align-middle",
+                                "border-r",
+                                GRID,
+                                idx < resultsRows.length - 2 && "border-b",
+                                idx < resultsRows.length - 2 && GRID,
+                              )}
+                            >
+                              {r.shear}
+                            </td>
+                          )}
+
+                          <td
+                            className={cn(
+                              "px-6 py-4",
+                              !isLast && "border-b",
+                              !isLast && GRID,
+                            )}
+                          >
+                            <StatusBadge status={r.status} value={r.validation} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {/* /RESULTS */}
         </div>
       </div>
     </div>
