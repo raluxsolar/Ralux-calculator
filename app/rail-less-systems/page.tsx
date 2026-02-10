@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { GEO_DESIGN_DATA, type WindSpeedCategory } from "@/Data/geoData";
 
 type PillProps = {
   active: boolean;
@@ -83,18 +85,47 @@ export default function RailLessSystemsPage() {
   );
   const [roofCoverage, setRoofCoverage] = useState("Standing Seam Metal");
 
+  type WindCategoryLabel = Exclude<WindSpeedCategory, "T10">;
+
   // environmental
-  const [windCategory, setWindCategory] = useState("T50 (CFE)");
+  const [windCategory, setWindCategory] =
+    useState<WindCategoryLabel>("T50");
   const [exposureCategory, setExposureCategory] = useState("B");
   const [snowLoad, setSnowLoad] = useState("0");
 
   // system configuration
   const [buildingHeight, setBuildingHeight] = useState("10");
   const [groundElevation, setGroundElevation] = useState("2250");
+
+  // ✅ NEW: wind speed (added beside ground elevation)
+  const [windSpeed, setWindSpeed] = useState("0");
+
   const [roofSlope, setRoofSlope] = useState(""); // will be set based on roofType
   const [moduleWeight, setModuleWeight] = useState("35");
   const [roofThickness, setRoofThickness] = useState("0.4");
   const [attachmentThickness, setAttachmentThickness] = useState("0.7");
+
+  const selectedCountry = useMemo(
+    () => GEO_DESIGN_DATA.find((entry) => entry.countryCode === country) ?? null,
+    [country],
+  );
+
+  const cityOptions = useMemo(
+    () => selectedCountry?.cities ?? [],
+    [selectedCountry],
+  );
+
+  const selectedCity = useMemo(
+    () => cityOptions.find((city) => city.cityCode === location) ?? null,
+    [cityOptions, location],
+  );
+
+  const windCategoryKey = useMemo<WindCategoryLabel | "">(() => {
+    if (windCategory === "T50") return "T50";
+    if (windCategory === "T200") return "T200";
+    if (windCategory === "MRI 700") return "MRI 700";
+    return "";
+  }, [windCategory]);
 
   const cols = useMemo(
     () => ["Zone 1", "Exposed 1", "Zone 2", "Exposed 2", "Zone 3", "Exposed 3"],
@@ -132,6 +163,33 @@ export default function RailLessSystemsPage() {
       setRoofSlope(roofSlopeOptions[0] ?? "");
     }
   }, [roofType, roofSlopeOptions, roofSlope]);
+
+  // keep location aligned with selected country
+  useEffect(() => {
+    if (!selectedCountry) {
+      if (location !== "") {
+        setLocation("");
+      }
+      return;
+    }
+
+    if (!selectedCity) {
+      setLocation(selectedCountry.cities[0]?.cityCode ?? "");
+    }
+  }, [selectedCountry, selectedCity, location]);
+
+  // hydrate ground elevation and wind speed from selected city + category
+  useEffect(() => {
+    if (!selectedCity || !windCategoryKey) {
+      setGroundElevation("");
+      setWindSpeed("");
+      return;
+    }
+
+    setGroundElevation(String(selectedCity.elevationM ?? ""));
+    const speed = selectedCity.wind?.[windCategoryKey];
+    setWindSpeed(speed === undefined ? "" : String(speed));
+  }, [selectedCity, windCategoryKey]);
 
   // RESULTS (UI data)
   // NOTE: downforce & shear are grouped into 3 rows (Z1/E1, Z2/E2, Z3/E3)
@@ -197,11 +255,12 @@ export default function RailLessSystemsPage() {
     setModuleLength("2.4");
     setRoofType("Gable");
     setRoofCoverage("Standing Seam Metal");
-    setWindCategory("T50 (CFE)");
+    setWindCategory("T50");
     setExposureCategory("B");
     setSnowLoad("0");
     setBuildingHeight("10");
-    setGroundElevation("2250");
+    setGroundElevation("");
+    setWindSpeed("");
     // roofSlope will auto-adjust via effect based on roofType
     setModuleWeight("35");
     setRoofThickness("0.4");
@@ -230,14 +289,18 @@ export default function RailLessSystemsPage() {
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className="bg-[#141414] border-[#454545] w-36 h-14 rounded-2xl py-2 px-4 border-[0.3px]">
+              <Link
+                href="/"
+                aria-label="Go to home page"
+                className="bg-[#141414] border-[#454545] w-36 h-14 rounded-2xl py-2 px-4 border-[0.3px] inline-flex items-center"
+              >
                 <Avatar className="h-10 w-28">
                   <AvatarImage
                     src="/ralux-logo.svg?height=40&width=112"
                     alt="ralux"
                   />
                 </Avatar>
-              </div>
+              </Link>
 
               <div className="pt-1">
                 <h1 className="text-lg md:text-[22px] font-semibold leading-tight">
@@ -276,9 +339,9 @@ export default function RailLessSystemsPage() {
                       <SelectValue placeholder="Select Country" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["Mexico", "Other"].map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
+                      {GEO_DESIGN_DATA.map((opt) => (
+                        <SelectItem key={opt.countryCode} value={opt.countryCode}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -294,9 +357,9 @@ export default function RailLessSystemsPage() {
                       <SelectValue placeholder="Select Location" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["Location 1", "Location 2", "Location 3"].map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
+                      {cityOptions.map((opt) => (
+                        <SelectItem key={opt.cityCode} value={opt.cityCode}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -408,7 +471,7 @@ export default function RailLessSystemsPage() {
                 <div>
                   <Label>Wind speed category</Label>
                   <div className="flex gap-4 mt-1">
-                    {["T50 (CFE)", "T200", "MRI 700"].map((v) => (
+                    {(["T50", "T200", "MRI 700"] as const).map((v) => (
                       <Pill
                         key={v}
                         active={windCategory === v}
@@ -434,7 +497,6 @@ export default function RailLessSystemsPage() {
                     ))}
                   </div>
                 </div>
-
                 <div>
                   <Label>Snow Load (Pa)</Label>
                   <div className="relative mt-1 flex-1">
@@ -458,6 +520,7 @@ export default function RailLessSystemsPage() {
             </h1>
 
             <div className="w-full bg-[#0F0F0F59] border border-[#1F1F1F] rounded-[32px] p-4 md:p-6 space-y-5">
+              {/* Row 1 */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Building Height</Label>
@@ -485,6 +548,24 @@ export default function RailLessSystemsPage() {
                   </div>
                 </div>
 
+                {/* ✅ NEW: Wind Speed input (beside Ground Elevation) */}
+                <div>
+                  <Label>Wind Speed</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      type="number"
+                      value={windSpeed}
+                      onChange={(e) => setWindSpeed(e.target.value)}
+                      className="h-11 rounded-full pr-10"
+                      placeholder="0"
+                    />
+                    <span className="absolute right-4 top-3 text-sm">m/s</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Roof Slope (°)</Label>
                   <Select value={roofSlope} onValueChange={setRoofSlope}>
@@ -500,9 +581,7 @@ export default function RailLessSystemsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Module Weight</Label>
                   <div className="relative mt-1">
@@ -523,7 +602,17 @@ export default function RailLessSystemsPage() {
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["0.4", "0.5", "0.55", "0.63", "0.75", "0.88", "1", "1.13", "1.25"].map((opt) => (
+                      {[
+                        "0.4",
+                        "0.5",
+                        "0.55",
+                        "0.63",
+                        "0.75",
+                        "0.88",
+                        "1",
+                        "1.13",
+                        "1.25",
+                      ].map((opt) => (
                         <SelectItem key={opt} value={opt}>
                           {opt}mm
                         </SelectItem>
@@ -531,7 +620,10 @@ export default function RailLessSystemsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
+              {/* Row 3 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Attachment Thickness (mm)</Label>
                   <Select
@@ -635,7 +727,7 @@ export default function RailLessSystemsPage() {
 
             <div className="w-full bg-[#0F0F0F59] border border-[#1F1F1F] rounded-[32px] overflow-hidden">
               <div className="w-full overflow-x-auto">
-                <table className="w-full min-w-[980px] border-collapse">
+                <table className="w-full min-w-245 border-collapse">
                   <thead>
                     <tr className={HEAD_BG}>
                       <th
