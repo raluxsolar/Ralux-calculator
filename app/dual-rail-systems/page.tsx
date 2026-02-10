@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import Link from "next/link";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { GEO_DESIGN_DATA, type WindSpeedCategory } from "@/Data/geoData";
 
 type PillProps = {
   active: boolean;
@@ -26,6 +28,8 @@ type StatusBadgeProps = {
 };
 
 type Status = "pass" | "fail" | "warn";
+
+type WindCategoryLabel = Exclude<WindSpeedCategory, "T10">;
 
 type ResultRow = {
   label: string;
@@ -98,7 +102,8 @@ export default function DualRailSystemsPage() {
   const [roofType, setRoofType] = useState("Gable");
 
   // ENVIRONMENTAL
-  const [windCategory, setWindCategory] = useState("T50 (CFE)");
+  const [windCategory, setWindCategory] =
+    useState<WindCategoryLabel>("T50");
   const [exposureCategory, setExposureCategory] = useState("B");
   const [snowLoad, setSnowLoad] = useState("0");
 
@@ -113,6 +118,28 @@ export default function DualRailSystemsPage() {
   const [moduleWeight, setModuleWeight] = useState("35");
   const [numberOfRails, setNumberOfRails] = useState("2");
 
+  const selectedCountry = useMemo(
+    () => GEO_DESIGN_DATA.find((entry) => entry.countryCode === country) ?? null,
+    [country],
+  );
+
+  const cityOptions = useMemo(
+    () => selectedCountry?.cities ?? [],
+    [selectedCountry],
+  );
+
+  const selectedCity = useMemo(
+    () => cityOptions.find((city) => city.cityCode === location) ?? null,
+    [cityOptions, location],
+  );
+
+  const windCategoryKey = useMemo<WindCategoryLabel | "">(() => {
+    if (windCategory === "T50") return "T50";
+    if (windCategory === "T200") return "T200";
+    if (windCategory === "MRI 700") return "MRI 700";
+    return "";
+  }, [windCategory]);
+
   const roofSlopeOptions = useMemo(() => {
     if (roofType === "Gable") return ["0–7", "7–20", "20–27", "27–45"];
     if (roofType === "Monoslope") return ["3–10", "10–30"];
@@ -124,6 +151,33 @@ export default function DualRailSystemsPage() {
       roofSlopeOptions.includes(prev) ? prev : roofSlopeOptions[0] || ""
     );
   }, [roofSlopeOptions]);
+
+  // keep location aligned with selected country
+  useEffect(() => {
+    if (!selectedCountry) {
+      if (location !== "") {
+        setLocation("");
+      }
+      return;
+    }
+
+    if (!selectedCity) {
+      setLocation(selectedCountry.cities[0]?.cityCode ?? "");
+    }
+  }, [selectedCountry, selectedCity, location]);
+
+  // hydrate ground elevation and wind speed from selected city + category
+  useEffect(() => {
+    if (!selectedCity || !windCategoryKey) {
+      setGroundElevation("");
+      setWindSpeed("");
+      return;
+    }
+
+    setGroundElevation(String(selectedCity.elevationM ?? ""));
+    const speed = selectedCity.wind?.[windCategoryKey];
+    setWindSpeed(speed === undefined ? "" : String(speed));
+  }, [selectedCity, windCategoryKey]);
 
   // RESULTS (UI rows)
   const resultsRows = useMemo<ResultRow[]>(
@@ -224,12 +278,12 @@ export default function DualRailSystemsPage() {
     setModuleWidth("1.4");
     setModuleHeight("2.4");
     setRoofType("Gable");
-    setWindCategory("T50 (CFE)");
+    setWindCategory("T50");
     setExposureCategory("B");
     setSnowLoad("0");
     setBuildingHeight("10");
-    setGroundElevation("3");
-    setWindSpeed("0"); // ✅ reset new field
+    setGroundElevation("");
+    setWindSpeed("");
     setRoofSlope("0–7");
     setModuleWeight("35");
     setNumberOfRails("2");
@@ -248,14 +302,18 @@ export default function DualRailSystemsPage() {
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className="bg-[#141414] border-[#454545] w-36 h-14 rounded-2xl py-2 px-4 border-[0.3px]">
+              <Link
+                href="/"
+                aria-label="Go to home page"
+                className="bg-[#141414] border-[#454545] w-36 h-14 rounded-2xl py-2 px-4 border-[0.3px] inline-flex items-center"
+              >
                 <Avatar className="h-10 w-28">
                   <AvatarImage
                     src="/ralux-logo.svg?height=40&width=112"
                     alt="ralux"
                   />
                 </Avatar>
-              </div>
+              </Link>
 
               <div className="pt-1">
                 <h1 className="text-lg md:text-[22px] font-semibold leading-tight">
@@ -294,9 +352,9 @@ export default function DualRailSystemsPage() {
                       <SelectValue placeholder="Select Country" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["Mexico", "Other"].map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
+                      {GEO_DESIGN_DATA.map((opt) => (
+                        <SelectItem key={opt.countryCode} value={opt.countryCode}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -312,9 +370,9 @@ export default function DualRailSystemsPage() {
                       <SelectValue placeholder="Select Location" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["Location 1", "Location 2", "Location 3"].map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
+                      {cityOptions.map((opt) => (
+                        <SelectItem key={opt.cityCode} value={opt.cityCode}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -422,7 +480,7 @@ export default function DualRailSystemsPage() {
                 <div>
                   <Label>Wind speed category</Label>
                   <div className="flex gap-4 mt-1">
-                    {["T50 (CFE)", "T200", "MRI 700"].map((v) => (
+                    {(["T50", "T200", "MRI 700"] as const).map((v) => (
                       <Pill
                         key={v}
                         active={windCategory === v}
