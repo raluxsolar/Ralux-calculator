@@ -30,8 +30,6 @@ type StatusBadgeProps = {
 
 type Status = "pass" | "fail" | "warn";
 
-type WindCategoryLabel = Exclude<WindSpeedCategory, "T10">;
-
 type ResultRow = {
   label: string;
   span: string;
@@ -121,7 +119,7 @@ export default function DualRailSystemsPage() {
 
   // ENVIRONMENTAL
   const [windCategory, setWindCategory] =
-    useState<WindCategoryLabel>("T50");
+    useState<WindSpeedCategory>("T50");
   const [exposureCategory, setExposureCategory] = useState<"B" | "C" | "D">(
     "B"
   );
@@ -153,12 +151,19 @@ export default function DualRailSystemsPage() {
     [cityOptions, location],
   );
 
-  const windCategoryKey = useMemo<WindCategoryLabel | "">(() => {
-    if (windCategory === "T50") return "T50";
-    if (windCategory === "T200") return "T200";
-    if (windCategory === "MRI 700") return "MRI 700";
-    return "";
-  }, [windCategory]);
+  const windOptions = useMemo<WindSpeedCategory[]>(() => {
+    const keys = selectedCountry?.cities?.[0]?.wind
+      ? (Object.keys(selectedCountry.cities[0].wind) as WindSpeedCategory[])
+      : [];
+    return keys.filter((k) => k !== "T10");
+  }, [selectedCountry]);
+
+  useEffect(() => {
+    if (windOptions.length === 0) return;
+    if (!windOptions.includes(windCategory)) {
+      setWindCategory(windOptions[0]);
+    }
+  }, [windOptions, windCategory]);
 
   const roofSlopeOptions = useMemo(() => {
     if (roofType === "Gable") return ["0–7", "7–20", "20–27", "27–45"];
@@ -188,16 +193,16 @@ export default function DualRailSystemsPage() {
 
   // hydrate ground elevation and wind speed from selected city + category
   useEffect(() => {
-    if (!selectedCity || !windCategoryKey) {
+    if (!selectedCity) {
       setGroundElevation("");
       setWindSpeed("");
       return;
     }
 
     setGroundElevation(String(selectedCity.elevationM ?? ""));
-    const speed = selectedCity.wind?.[windCategoryKey];
+    const speed = selectedCity.wind?.[windCategory];
     setWindSpeed(speed === undefined ? "" : String(speed));
-  }, [selectedCity, windCategoryKey]);
+  }, [selectedCity, windCategory]);
 
   // RESULTS (UI rows)
   const calcResult = useMemo(
@@ -573,7 +578,7 @@ export default function DualRailSystemsPage() {
                 <div>
                   <Label>Wind speed category</Label>
                   <div className="flex gap-4 mt-1">
-                    {(["T50", "T200", "MRI 700"] as const).map((v) => (
+                    {windOptions.map((v) => (
                       <Pill
                         key={v}
                         active={windCategory === v}
