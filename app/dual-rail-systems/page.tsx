@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { GEO_DESIGN_DATA, type WindSpeedCategory } from "@/Data/geoData";
+import { calcDualRail } from "@/lib/calculators/dual-rail";
 
 type PillProps = {
   active: boolean;
@@ -85,6 +86,21 @@ const StatusBadge = ({ status, value }: StatusBadgeProps) => {
   );
 };
 
+const formatNumber = (value?: number) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(2)
+    : "--";
+
+const formatPercent = (value?: number) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? `${Math.round(value)}%`
+    : "--";
+
+const statusFromPercent = (value?: number): Status => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "warn";
+  return value <= 100 ? "pass" : "fail";
+};
+
 export default function DualRailSystemsPage() {
   // PROJECT INFORMATION
   const [country, setCountry] = useState("");
@@ -99,12 +115,16 @@ export default function DualRailSystemsPage() {
   const [moduleHeight, setModuleHeight] = useState("2.4");
 
   // roof type
-  const [roofType, setRoofType] = useState("Gable");
+  const [roofType, setRoofType] = useState<"Gable" | "Monoslope" | "Hip">(
+    "Gable"
+  );
 
   // ENVIRONMENTAL
   const [windCategory, setWindCategory] =
     useState<WindCategoryLabel>("T50");
-  const [exposureCategory, setExposureCategory] = useState("B");
+  const [exposureCategory, setExposureCategory] = useState<"B" | "C" | "D">(
+    "B"
+  );
   const [snowLoad, setSnowLoad] = useState("0");
 
   // SYSTEM CONFIGURATION
@@ -180,95 +200,168 @@ export default function DualRailSystemsPage() {
   }, [selectedCity, windCategoryKey]);
 
   // RESULTS (UI rows)
-  const resultsRows = useMemo<ResultRow[]>(
-    () => [
+  const calcResult = useMemo(
+    () =>
+      calcDualRail({
+        mountingSystem,
+        railType,
+        numberOfRails,
+        moduleWidth,
+        moduleHeight,
+        moduleWeight,
+        roofType,
+        roofSlope,
+        buildingHeight,
+        groundElevation,
+        windSpeed,
+        exposureCategory,
+        snowLoad,
+      }),
+    [
+      mountingSystem,
+      railType,
+      numberOfRails,
+      moduleWidth,
+      moduleHeight,
+      moduleWeight,
+      roofType,
+      roofSlope,
+      buildingHeight,
+      groundElevation,
+      windSpeed,
+      exposureCategory,
+      snowLoad,
+    ]
+  );
+
+  const resultsRows = useMemo<ResultRow[]>(() => {
+    const empty: ResultRow[] = [
       {
         label: "Zone 1",
-        span: "1.60",
-        windPressure: "-2173.58",
-        uplift: "242.81",
-        downforce: "242.81",
-        shear: "2.43",
-        upliftStatus: "pass",
-        upliftVal: "68%",
-        downforceStatus: "pass",
-        downforceVal: "69%",
-        shearStatus: "pass",
-        shearVal: "7%",
+        span: "--",
+        windPressure: "--",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        upliftStatus: "warn",
+        upliftVal: "--",
+        downforceStatus: "warn",
+        downforceVal: "--",
+        shearStatus: "warn",
+        shearVal: "--",
       },
       {
         label: "Exposed 1",
-        span: "1.29",
-        windPressure: "-3260.36",
-        uplift: "299.80",
-        downforce: "299.80",
-        shear: "1.97",
-        upliftStatus: "fail",
-        upliftVal: "12%",
-        downforceStatus: "fail",
-        downforceVal: "12%",
-        shearStatus: "fail",
-        shearVal: "12%",
+        span: "--",
+        windPressure: "--",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        upliftStatus: "warn",
+        upliftVal: "--",
+        downforceStatus: "warn",
+        downforceVal: "--",
+        shearStatus: "warn",
+        shearVal: "--",
       },
       {
         label: "Zone 2",
-        span: "1.36",
-        windPressure: "-2940.72",
-        uplift: "284.23",
-        downforce: "284.23",
-        shear: "2.08",
-        upliftStatus: "fail",
-        upliftVal: "12%",
-        downforceStatus: "fail",
-        downforceVal: "12%",
-        shearStatus: "fail",
-        shearVal: "12%",
+        span: "--",
+        windPressure: "--",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        upliftStatus: "warn",
+        upliftVal: "--",
+        downforceStatus: "warn",
+        downforceVal: "--",
+        shearStatus: "warn",
+        shearVal: "--",
       },
       {
         label: "Exposed 2",
-        span: "1.11",
-        windPressure: "-4411.08",
-        uplift: "350.17",
-        downforce: "350.17",
-        shear: "1.69",
+        span: "--",
+        windPressure: "--",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
         upliftStatus: "warn",
-        upliftVal: "13%",
+        upliftVal: "--",
         downforceStatus: "warn",
-        downforceVal: "13%",
+        downforceVal: "--",
         shearStatus: "warn",
-        shearVal: "13%",
+        shearVal: "--",
       },
       {
         label: "Zone 3",
-        span: "1.15",
-        windPressure: "-4091.44",
-        uplift: "336.94",
-        downforce: "336.94",
-        shear: "1.75",
+        span: "--",
+        windPressure: "--",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
         upliftStatus: "warn",
-        upliftVal: "13%",
+        upliftVal: "--",
         downforceStatus: "warn",
-        downforceVal: "13%",
+        downforceVal: "--",
         shearStatus: "warn",
-        shearVal: "13%",
+        shearVal: "--",
       },
       {
         label: "Exposed 3",
-        span: "0.94",
-        windPressure: "-6137.16",
-        uplift: "414.41",
-        downforce: "414.41",
-        shear: "1.42",
+        span: "--",
+        windPressure: "--",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
         upliftStatus: "warn",
-        upliftVal: "13%",
+        upliftVal: "--",
         downforceStatus: "warn",
-        downforceVal: "13%",
+        downforceVal: "--",
         shearStatus: "warn",
-        shearVal: "13%",
+        shearVal: "--",
       },
-    ],
-    []
-  );
+    ];
+
+    if ("error" in calcResult) return empty;
+
+    const explain = calcResult.mounting?.explain as {
+      clipKr18Tables?: { rows: any[]; validationRows: any[] };
+      hangerTables?: { rows: any[]; validationRows: any[] };
+      domoTables?: { rows: any[]; validationRows: any[] };
+    };
+
+    const tables =
+      explain?.clipKr18Tables ?? explain?.hangerTables ?? explain?.domoTables;
+
+    if (!tables?.rows || !tables?.validationRows) return empty;
+
+    const validationMap = new Map(
+      tables.validationRows.map((row) => [row.zone, row])
+    );
+
+    return tables.rows.map((row) => {
+      const validation = validationMap.get(row.zone);
+
+      const upliftPercent = validation?.upliftPercent;
+      const downforcePercent = validation?.downforcePercent;
+      const shearPercent = validation?.shearPercent;
+
+      return {
+        label: row.zone ?? "--",
+        span: formatNumber(row.span_m),
+        windPressure: formatNumber(row.windPressure_Pa),
+        uplift: formatNumber(row.upliftKg),
+        downforce: formatNumber(row.downforceKg),
+        shear: formatNumber(row.shearKg),
+        upliftStatus: statusFromPercent(upliftPercent),
+        upliftVal: formatPercent(upliftPercent),
+        downforceStatus: statusFromPercent(downforcePercent),
+        downforceVal: formatPercent(downforcePercent),
+        shearStatus: statusFromPercent(shearPercent),
+        shearVal: formatPercent(shearPercent),
+      };
+    });
+  }, [calcResult]);
 
   const reset = () => {
     setCountry("");
@@ -436,7 +529,7 @@ export default function DualRailSystemsPage() {
                 <div>
                   <Label>Roof Type</Label>
                   <div className="flex gap-4 mt-1">
-                    {["Hip", "Gable", "Monoslope"].map((v) => (
+                    {(["Hip", "Gable", "Monoslope"] as const).map((v) => (
                       <Pill
                         key={v}
                         active={roofType === v}
@@ -495,7 +588,7 @@ export default function DualRailSystemsPage() {
                 <div>
                   <Label>Exposure Category</Label>
                   <div className="flex gap-4 mt-1">
-                    {["B", "C", "D"].map((v) => (
+                    {(["B", "C", "D"] as const).map((v) => (
                       <Pill
                         key={v}
                         active={exposureCategory === v}
