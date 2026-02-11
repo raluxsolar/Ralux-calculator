@@ -110,11 +110,9 @@ export default function RailLessSystemsPage() {
   );
   const [roofCoverage, setRoofCoverage] = useState("Standing Seam Metal");
 
-  type WindCategoryLabel = Exclude<WindSpeedCategory, "T10">;
-
   // environmental
   const [windCategory, setWindCategory] =
-    useState<WindCategoryLabel>("T50");
+    useState<WindSpeedCategory>("T50");
   const [exposureCategory, setExposureCategory] = useState<"B" | "C" | "D">(
     "B"
   );
@@ -147,12 +145,19 @@ export default function RailLessSystemsPage() {
     [cityOptions, location],
   );
 
-  const windCategoryKey = useMemo<WindCategoryLabel | "">(() => {
-    if (windCategory === "T50") return "T50";
-    if (windCategory === "T200") return "T200";
-    if (windCategory === "MRI 700") return "MRI 700";
-    return "";
-  }, [windCategory]);
+  const windOptions = useMemo<WindSpeedCategory[]>(() => {
+    const keys = selectedCountry?.cities?.[0]?.wind
+      ? (Object.keys(selectedCountry.cities[0].wind) as WindSpeedCategory[])
+      : [];
+    return keys.filter((k) => k !== "T10");
+  }, [selectedCountry]);
+
+  useEffect(() => {
+    if (windOptions.length === 0) return;
+    if (!windOptions.includes(windCategory)) {
+      setWindCategory(windOptions[0]);
+    }
+  }, [windOptions, windCategory]);
 
   const cols = useMemo(
     () => ["Zone 1", "Exposed 1", "Zone 2", "Exposed 2", "Zone 3", "Exposed 3"],
@@ -207,16 +212,16 @@ export default function RailLessSystemsPage() {
 
   // hydrate ground elevation and wind speed from selected city + category
   useEffect(() => {
-    if (!selectedCity || !windCategoryKey) {
+    if (!selectedCity) {
       setGroundElevation("");
       setWindSpeed("");
       return;
     }
 
     setGroundElevation(String(selectedCity.elevationM ?? ""));
-    const speed = selectedCity.wind?.[windCategoryKey];
+    const speed = selectedCity.wind?.[windCategory];
     setWindSpeed(speed === undefined ? "" : String(speed));
-  }, [selectedCity, windCategoryKey]);
+  }, [selectedCity, windCategory]);
 
   // RESULTS (UI data)
   // NOTE: downforce & shear are grouped into 3 rows (Z1/E1, Z2/E2, Z3/E3)
@@ -595,7 +600,7 @@ export default function RailLessSystemsPage() {
                 <div>
                   <Label>Wind speed category</Label>
                   <div className="flex gap-4 mt-1">
-                    {(["T50", "T200", "MRI 700"] as const).map((v) => (
+                    {windOptions.map((v) => (
                       <Pill
                         key={v}
                         active={windCategory === v}
