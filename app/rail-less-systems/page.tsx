@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { GEO_DESIGN_DATA, type WindSpeedCategory } from "@/Data/geoData";
+import { calcRailLess } from "@/lib/calculators/rail-less";
 
 type PillProps = {
   active: boolean;
@@ -69,6 +70,30 @@ const StatusBadge = ({
   );
 };
 
+type ResultsRow = {
+  label: string;
+  uplift: string;
+  downforce: string;
+  shear: string;
+  status: ValidationStatus;
+  validation: string;
+};
+
+const formatNumber = (value?: number) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(2)
+    : "--";
+
+const formatPercent = (value?: number) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? `${Math.round(value)}%`
+    : "--";
+
+const statusFromPercent = (value?: number): ValidationStatus => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "warn";
+  return value <= 100 ? "pass" : "fail";
+};
+
 export default function RailLessSystemsPage() {
   // top selects
   const [country, setCountry] = useState("");
@@ -90,7 +115,9 @@ export default function RailLessSystemsPage() {
   // environmental
   const [windCategory, setWindCategory] =
     useState<WindCategoryLabel>("T50");
-  const [exposureCategory, setExposureCategory] = useState("B");
+  const [exposureCategory, setExposureCategory] = useState<"B" | "C" | "D">(
+    "B"
+  );
   const [snowLoad, setSnowLoad] = useState("0");
 
   // system configuration
@@ -193,59 +220,156 @@ export default function RailLessSystemsPage() {
 
   // RESULTS (UI data)
   // NOTE: downforce & shear are grouped into 3 rows (Z1/E1, Z2/E2, Z3/E3)
-  const resultsRows = useMemo(
-    () => [
+  const calcResult = useMemo(
+    () =>
+      calcRailLess({
+        mountingType,
+        moduleWidth,
+        moduleLength,
+        moduleWeight,
+        roofType,
+        roofSlope,
+        roofCoverage,
+        roofThickness,
+        buildingHeight,
+        groundElevation,
+        windSpeed,
+        exposureCategory,
+        snowLoad,
+        attachmentsPerModule,
+      }),
+    [
+      mountingType,
+      moduleWidth,
+      moduleLength,
+      moduleWeight,
+      roofType,
+      roofSlope,
+      roofCoverage,
+      roofThickness,
+      buildingHeight,
+      groundElevation,
+      windSpeed,
+      exposureCategory,
+      snowLoad,
+      attachmentsPerModule,
+    ],
+  );
+
+  const resultsRows = useMemo<ResultsRow[]>(() => {
+    const empty: ResultsRow[] = [
       {
         label: "Zone 1",
-        uplift: "13.31",
-        downforce: "28.83",
-        shear: "5.99",
-        status: "pass" as const,
-        validation: "7%",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        status: "warn",
+        validation: "--",
       },
       {
         label: "Exposed 1",
-        uplift: "24.65",
-        downforce: "28.83",
-        shear: "5.99",
-        status: "fail" as const,
-        validation: "12%",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        status: "warn",
+        validation: "--",
       },
       {
         label: "Zone 2",
-        uplift: "28.43",
-        downforce: "28.83",
-        shear: "5.99",
-        status: "warn" as const,
-        validation: "13%",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        status: "warn",
+        validation: "--",
       },
       {
         label: "Exposed 2",
-        uplift: "47.32",
-        downforce: "28.83",
-        shear: "5.99",
-        status: "pass" as const,
-        validation: "21%",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        status: "warn",
+        validation: "--",
       },
       {
         label: "Zone 3",
-        uplift: "35.98",
-        downforce: "28.83",
-        shear: "5.99",
-        status: "pass" as const,
-        validation: "17%",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        status: "warn",
+        validation: "--",
       },
       {
         label: "Exposed 3",
-        uplift: "58.65",
-        downforce: "28.83",
-        shear: "5.99",
-        status: "pass" as const,
-        validation: "26%",
+        uplift: "--",
+        downforce: "--",
+        shear: "--",
+        status: "warn",
+        validation: "--",
       },
-    ],
-    [],
-  );
+    ];
+
+    if ("error" in calcResult) return empty;
+
+    const per = calcResult.mounting.perAttachmentKg;
+    const perEx = calcResult.mounting.perAttachmentExposedKg;
+    const val = calcResult.mounting.validation?.finalUtilizationPercent;
+    const valEx =
+      calcResult.mounting.validation?.finalUtilizationPercentExposed;
+
+    const down = calcResult.mounting.downforcePerAttachmentKg;
+    const shear = calcResult.mounting.shearPerAttachmentKg;
+
+    return [
+      {
+        label: "Zone 1",
+        uplift: formatNumber(per?.center),
+        downforce: formatNumber(down),
+        shear: formatNumber(shear),
+        status: statusFromPercent(val?.center),
+        validation: formatPercent(val?.center),
+      },
+      {
+        label: "Exposed 1",
+        uplift: formatNumber(perEx?.center),
+        downforce: formatNumber(down),
+        shear: formatNumber(shear),
+        status: statusFromPercent(valEx?.center),
+        validation: formatPercent(valEx?.center),
+      },
+      {
+        label: "Zone 2",
+        uplift: formatNumber(per?.edge),
+        downforce: formatNumber(down),
+        shear: formatNumber(shear),
+        status: statusFromPercent(val?.edge),
+        validation: formatPercent(val?.edge),
+      },
+      {
+        label: "Exposed 2",
+        uplift: formatNumber(perEx?.edge),
+        downforce: formatNumber(down),
+        shear: formatNumber(shear),
+        status: statusFromPercent(valEx?.edge),
+        validation: formatPercent(valEx?.edge),
+      },
+      {
+        label: "Zone 3",
+        uplift: formatNumber(per?.corner),
+        downforce: formatNumber(down),
+        shear: formatNumber(shear),
+        status: statusFromPercent(val?.corner),
+        validation: formatPercent(val?.corner),
+      },
+      {
+        label: "Exposed 3",
+        uplift: formatNumber(perEx?.corner),
+        downforce: formatNumber(down),
+        shear: formatNumber(shear),
+        status: statusFromPercent(valEx?.corner),
+        validation: formatPercent(valEx?.corner),
+      },
+    ];
+  }, [calcResult]);
 
   const reset = () => {
     setCountry("");
@@ -486,7 +610,7 @@ export default function RailLessSystemsPage() {
                 <div>
                   <Label>Exposure Category</Label>
                   <div className="flex gap-4 mt-1">
-                    {["B", "C", "D"].map((v) => (
+                    {(["B", "C", "D"] as const).map((v) => (
                       <Pill
                         key={v}
                         active={exposureCategory === v}
@@ -688,7 +812,7 @@ export default function RailLessSystemsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {["2", "3", "4", "5", "6"].map((n) => (
+                      {["4", "6", "8"].map((n) => (
                         <SelectItem key={n} value={n}>
                           {n}
                         </SelectItem>
