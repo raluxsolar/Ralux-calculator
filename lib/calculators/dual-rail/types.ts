@@ -2,6 +2,8 @@ import type { MountingResult } from "@/lib/mountings/types";
 import type { SurroundingsResult } from "@/lib/surroundings";
 
 export type DualRailUiState = {
+  countryCode?: string;
+  country?: string;
   mountingSystem: string;
   railType: string;
   numberOfRails: string;

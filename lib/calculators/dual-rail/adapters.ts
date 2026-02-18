@@ -92,6 +92,8 @@ const buildMountingInput = (
     module: buildModule(state),
     mounting,
     surroundings,
+    countryCode: state.countryCode,
+    country: state.country,
     snowLoad_Pa: Number(state.snowLoad),
     numberOfRails: resolveRails(state.numberOfRails),
   };

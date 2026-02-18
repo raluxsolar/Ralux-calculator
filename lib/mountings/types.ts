@@ -16,6 +16,10 @@ export type MountingInput = {
 
   surroundings: SurroundingsResult;
 
+  // Optional country context (used by dual-rail control span tables)
+  countryCode?: string;
+  country?: string;
+
   // ✅ explicitly pass snow load as Pa (from Zustand surroundings.snowLoad)
   snowLoad_Pa: number;
 

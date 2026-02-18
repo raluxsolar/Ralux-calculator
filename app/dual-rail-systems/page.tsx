@@ -208,6 +208,8 @@ export default function DualRailSystemsPage() {
   const calcResult = useMemo(
     () =>
       calcDualRail({
+        countryCode: country,
+        country: selectedCountry?.label ?? "",
         mountingSystem,
         railType,
         numberOfRails,
@@ -223,6 +225,8 @@ export default function DualRailSystemsPage() {
         snowLoad,
       }),
     [
+      country,
+      selectedCountry,
       mountingSystem,
       railType,
       numberOfRails,
