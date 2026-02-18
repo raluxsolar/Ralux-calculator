@@ -438,7 +438,9 @@ export function calcClipKr18(input: MountingInput): MountingResult {
   const worstDown_lb = Math.max(windDown_lb, windSnowDown_lb, deadSnowDown_lb);
 
   // ---------- Shear (Dead + Snow on slope) ----------
-  const deadSnowShear_lb = (panelDL_lb + panelSL_lb) * Math.sin(roofSlopeRad_min);
+  const shearSlopeRad =
+    roofType === "gable" && roofSlopeKey === "0–7" ? roofSlopeRad_max : roofSlopeRad_min;
+  const deadSnowShear_lb = (panelDL_lb + panelSL_lb) * Math.sin(shearSlopeRad);
   const worstShear_lb = deadSnowShear_lb;
 
   // ---------- Rail span analysis constants ----------
