@@ -1,12 +1,13 @@
 // lib/mountings/systems/domo.ts
 import type { MountingInput, MountingResult, ZoneTriple } from "../types";
 import type { SurroundingsResult } from "@/lib/surroundings";
+import type { RoofType } from "@/lib/calculators/types";
 
 const M_TO_FT = 3.28084;
 const KG_TO_LB = 2.20462262185;
 const PA_TO_PSI = 1 / 6894.757293168; // Pa -> psi
 const PSI_TO_PSF = 144; // psi -> lb/ft^2
-const LB_TO_KG = 0.45359237;
+const IN_TO_M = 0.0254;
 
 const BASE_ATTACHMENTS_PER_MODULE = 4;
 const PSF_TO_PA = 47.8803;
@@ -67,10 +68,10 @@ function safeSqrt(x: number): number {
   return x > 0 && Number.isFinite(x) ? Math.sqrt(x) : Number.NaN;
 }
 
-function safeMin(a: number, b: number): number {
+function safeMax(a: number, b: number): number {
   const fa = Number.isFinite(a);
   const fb = Number.isFinite(b);
-  if (fa && fb) return Math.min(a, b);
+  if (fa && fb) return Math.max(a, b);
   if (fa) return a;
   if (fb) return b;
   return Number.NaN;
@@ -81,23 +82,221 @@ function pctCeil(ratio: number): number {
   return Number.isFinite(ratio) ? Math.ceil(ratio * 100) : NaN;
 }
 
-function resolveRails(input: MountingInput): number {
-  const n = Number(input.numberOfRails);
-  if (Number.isFinite(n) && n > 0) return Math.max(1, Math.round(n));
-  return 2;
-}
-
 const FASTENING_TABLE: Record<string, { label: string; I_in4: number; S_in3: number }> = {
-  "omnia-3c": { label: "Omnia 3C", I_in4: 0.1, S_in3: 0.123002421 },
+  "omnia-3c": { label: "Omnia 3C", I_in4: 0.169, S_in3: 0.171704 },
   "omnia-2c": { label: "Omnia 2C", I_in4: 0.12, S_in3: 0.139051094 },
-  omnia: { label: "Omnia", I_in4: 0.19509291, S_in3: 0.19821439 },
-  ace: { label: "ACE", I_in4: 1.487748, S_in3: 0.749480338 },
+  omnia: { label: "Omnia", I_in4: 0.19509291, S_in3: 0.1982047 },
+  ace: { label: "ACE", I_in4: 1.487748, S_in3: 0.7619708 },
+
+  // Store enum mapping
   "omnia-light": {
     label: "Omnia 2C (mapped from omnia-light)",
     I_in4: 0.12,
     S_in3: 0.139051094,
   },
 };
+
+type SpanControlPosition = "Center" | "Exposed 1" | "Edge" | "Exposed 2" | "Corner" | "Exposed 3";
+
+type ControlSpanCountry = "MX" | "CO";
+
+const CONTROL_SPAN_TABLE_MX: Record<RoofType, Record<string, Record<SpanControlPosition, number>>> = {
+  monoslope: {
+    "3–10": {
+      Center: 2.19,
+      "Exposed 1": 2.19,
+      Edge: 2.19,
+      "Exposed 2": 2.19,
+      Corner: 2.19,
+      "Exposed 3": 1.96,
+    },
+    "10–30": {
+      Center: 2.10,
+      "Exposed 1": 2.10,
+      Edge: 2.10,
+      "Exposed 2": 2.10,
+      Corner: 2.10,
+      "Exposed 3": 1.87,
+    },
+  },
+  hip: {
+    "7–20": {
+      Center: 2.19,
+      "Exposed 1": 2.19,
+      Edge: 2.19,
+      "Exposed 2": 2.02,
+      Corner: 2.19,
+      "Exposed 3": 1.95,
+    },
+    "20–27": {
+      Center: 2.21,
+      "Exposed 1": 2.21,
+      Edge: 2.21,
+      "Exposed 2": 2.19,
+      Corner: 2.21,
+      "Exposed 3": 2.19,
+    },
+    "27–45": {
+      Center: 2.32,
+      "Exposed 1": 2.32,
+      Edge: 2.32,
+      "Exposed 2": 2.22,
+      Corner: 2.32,
+      "Exposed 3": 1.97,
+    },
+  },
+  gable: {
+    "0–7": {
+      Center: 2.31,
+      "Exposed 1": 2.31,
+      Edge: 2.31,
+      "Exposed 2": 2.07,
+      Corner: 2.14,
+      "Exposed 3": 1.79,
+    },
+    "7–20": {
+      Center: 2.22,
+      "Exposed 1": 2.19,
+      Edge: 2.22,
+      "Exposed 2": 1.91,
+      Corner: 2.02,
+      "Exposed 3": 1.68,
+    },
+    "20–27": {
+      Center: 2.25,
+      "Exposed 1": 2.25,
+      Edge: 2.25,
+      "Exposed 2": 1.93,
+      Corner: 2.02,
+      "Exposed 3": 1.84,
+    },
+    "27–45": {
+      Center: 2.24,
+      "Exposed 1": 2.24,
+      Edge: 2.24,
+      "Exposed 2": 2.22,
+      Corner: 2.24,
+      "Exposed 3": 1.97,
+    },
+  },
+};
+
+const CONTROL_SPAN_TABLE_CO: Record<RoofType, Record<string, Record<SpanControlPosition, number>>> = {
+  monoslope: {
+    "3–10": {
+      Center: 2.12,
+      "Exposed 1": 2.12,
+      Edge: 2.12,
+      "Exposed 2": 2.12,
+      Corner: 2.12,
+      "Exposed 3": 1.86,
+    },
+    "10–30": {
+      Center: 2.03,
+      "Exposed 1": 2.03,
+      Edge: 2.03,
+      "Exposed 2": 2.03,
+      Corner: 2.03,
+      "Exposed 3": 1.78,
+    },
+  },
+  hip: {
+    "7–20": {
+      Center: 2.12,
+      "Exposed 1": 2.12,
+      Edge: 2.12,
+      "Exposed 2": 1.92,
+      Corner: 2.12,
+      "Exposed 3": 1.85,
+    },
+    "20–27": {
+      Center: 2.14,
+      "Exposed 1": 2.14,
+      Edge: 2.14,
+      "Exposed 2": 2.08,
+      Corner: 2.14,
+      "Exposed 3": 2.08,
+    },
+    "27–45": {
+      Center: 2.25,
+      "Exposed 1": 2.25,
+      Edge: 2.25,
+      "Exposed 2": 2.11,
+      Corner: 2.23,
+      "Exposed 3": 1.87,
+    },
+  },
+  gable: {
+    "0–7": {
+      Center: 2.24,
+      "Exposed 1": 2.24,
+      Edge: 2.24,
+      "Exposed 2": 1.97,
+      Corner: 2.03,
+      "Exposed 3": 1.71,
+    },
+    "7–20": {
+      Center: 2.15,
+      "Exposed 1": 2.08,
+      Edge: 2.15,
+      "Exposed 2": 1.82,
+      Corner: 1.92,
+      "Exposed 3": 1.60,
+    },
+    "20–27": {
+      Center: 2.18,
+      "Exposed 1": 2.18,
+      Edge: 2.18,
+      "Exposed 2": 1.84,
+      Corner: 1.92,
+      "Exposed 3": 1.76,
+    },
+    "27–45": {
+      Center: 2.17,
+      "Exposed 1": 2.17,
+      Edge: 2.17,
+      "Exposed 2": 2.11,
+      Corner: 2.17,
+      "Exposed 3": 1.87,
+    },
+  },
+};
+
+function normalizeSlopeKey(s: string): string {
+  return s.replace("—", "–").replace("-", "–").trim();
+}
+
+function resolveControlSpanCountry(
+  countryCode?: string,
+  country?: string
+): ControlSpanCountry {
+  const code = String(countryCode ?? "").trim().toUpperCase();
+  const name = String(country ?? "").trim().toLowerCase();
+  if (code === "CO" || name === "colombia") return "CO";
+  return "MX";
+}
+
+function getControlSpanM(
+  roofType: RoofType,
+  roofSlope: string,
+  position: SpanControlPosition,
+  controlSpanCountry: ControlSpanCountry
+): number {
+  const slopeKey = normalizeSlopeKey(roofSlope);
+  const tableByCountry =
+    controlSpanCountry === "CO" ? CONTROL_SPAN_TABLE_CO : CONTROL_SPAN_TABLE_MX;
+  const table = tableByCountry[roofType];
+  const row = table?.[slopeKey];
+  if (!row) {
+    const allowed = Object.keys(table || {}).join(", ");
+    throw new Error(`Invalid roofSlope "${roofSlope}" for ${roofType} control span. Allowed: ${allowed}`);
+  }
+  const value = row[position];
+  if (!Number.isFinite(value)) {
+    throw new Error(`Control span not found for ${roofType} ${slopeKey} ${position}.`);
+  }
+  return value;
+}
 
 type SpanCaseKey =
   | "zone_center"
@@ -106,7 +305,21 @@ type SpanCaseKey =
   | "exposed_center"
   | "exposed_edge"
   | "exposed_corner"
-  | "downforce_worst";
+  | "downforce_worst"
+  | "shear_worst";
+
+const CONTROL_POSITION_BY_CASE: Record<SpanCaseKey, SpanControlPosition> = {
+  zone_center: "Center",
+  exposed_center: "Exposed 1",
+  zone_edge: "Edge",
+  exposed_edge: "Exposed 2",
+  zone_corner: "Corner",
+  exposed_corner: "Exposed 3",
+  // Downforce is not a wind zone; use center control span for cap.
+  downforce_worst: "Center",
+  // Shear is not a wind zone; use center control span for cap.
+  shear_worst: "Center",
+};
 
 type SpanAnalysisCase = {
   key: SpanCaseKey;
@@ -127,18 +340,24 @@ type SpanAnalysisCase = {
   linear_load_stresses_plf: number;
   linear_load_stresses_pli: number;
 
-  asd_result_in: number;
-  clear_limit_by_deflection_in: number;
+  span_asd_in: number;
+  span_asd_m: number;
+  span_L240_in: number;
+  span_L240_m: number;
+  span_governing_m: number;
+  control_span_m: number;
 
-  maximum_design_span_in: number;
-  maximum_design_span_mm: number;
-  maximum_design_span_m: number;
+  final_span_m: number;
 
-  useful_reaction_lb: number;
-  useful_reaction_kg: number;
+  reaction_asd_lb: number;
+  reaction_asd_kg: number;
 
-  uses_L_ruler_efforts_lb: number;
-  uses_L_ruler_efforts_kg: number;
+  reaction_L240_lb: number;
+  reaction_L240_kg: number;
+
+  uplift_per_attachment_kg: number;
+  downforce_per_attachment_kg: number;
+  shear_per_attachment_kg: number;
 };
 
 export function calcDomo(input: MountingInput): MountingResult {
@@ -151,6 +370,9 @@ export function calcDomo(input: MountingInput): MountingResult {
   const slanted = input.mounting?.slantedRoof;
   if (!slanted) throw new Error("Mounting slantedRoof is missing/invalid.");
   if (!slanted.roofSlope) throw new Error("Roof slope is missing in mounting step.");
+  if (!slanted.roofType) throw new Error("Roof type is missing in mounting step.");
+  const roofType = slanted.roofType;
+  const controlSpanCountry = resolveControlSpanCountry(input.countryCode, input.country);
 
   const fasteningKey = String(slanted.fastening ?? "").trim().toLowerCase();
   if (!fasteningKey) throw new Error("Fastening is missing in mounting step (slantedRoof.fastening).");
@@ -161,6 +383,7 @@ export function calcDomo(input: MountingInput): MountingResult {
   }
 
   const { raw: roofSlopeRange, minDeg, maxDeg } = parseRoofSlopeRange(slanted.roofSlope);
+  const roofSlopeKey = normalizeSlopeKey(roofSlopeRange);
   const roofSlopeRad_min = degToRad(minDeg);
   const roofSlopeRad_max = degToRad(maxDeg);
 
@@ -221,14 +444,14 @@ export function calcDomo(input: MountingInput): MountingResult {
 
   // ---------- Rail span analysis constants ----------
   const E_ksi = 10000;
-  const Fy_ksi = 21;
+  const Fy_ksi = 35;
   const Omega_b = 1.65;
   const Fb_ksi = Fy_ksi / Omega_b;
 
   const E_psi = E_ksi * 1000;
   const Fb_psi = Fb_ksi * 1000;
 
-  const rails = resolveRails(input);
+  const rails = 2;
   const deflDen = 240;
 
   const moduleLength_in = moduleLength_m / 0.0254;
@@ -238,11 +461,21 @@ export function calcDomo(input: MountingInput): MountingResult {
   const worstDownCheck_psf = worstDown_lb / moduleArea_ft2;
   const tributaryWidthPerRail_ft = (moduleLength_in / rails) / 12;
 
-  function computeSpanAnalysisCase(key: SpanCaseKey, load_lb: number): SpanAnalysisCase {
+  function computeSpanAnalysisCase(
+    key: SpanCaseKey,
+    load_lb: number,
+    options?: { worstDownCheck_psf?: number }
+  ): SpanAnalysisCase {
     const asdWind_psf = load_lb / moduleArea_ft2;
 
-    const servicePressure_psf = Math.max(asdWind_psf, worstDownCheck_psf);
-    const pressureEfforts_psf = Math.max(asdWind_psf, worstDownCheck_psf);
+    const overrideWorstDown = options?.worstDownCheck_psf;
+    const worstDownCheckCase_psf =
+      typeof overrideWorstDown === "number" && Number.isFinite(overrideWorstDown)
+        ? overrideWorstDown
+        : worstDownCheck_psf;
+
+    const servicePressure_psf = Math.max(asdWind_psf, worstDownCheckCase_psf);
+    const pressureEfforts_psf = Math.max(asdWind_psf, worstDownCheckCase_psf);
 
     const linearService_plf = tributaryWidthPerRail_ft * servicePressure_psf;
     const linearService_pli = linearService_plf / 12;
@@ -250,29 +483,40 @@ export function calcDomo(input: MountingInput): MountingResult {
     const linearStress_plf = tributaryWidthPerRail_ft * pressureEfforts_psf;
     const linearStress_pli = linearStress_plf / 12;
 
-    const asdResult_in = safeSqrt((8 * Fb_psi * fastening.S_in3) / linearStress_pli);
+    const spanAsd_in = safeSqrt((8 * Fb_psi * fastening.S_in3) / linearStress_pli);
 
-    const clearLimit_in = safeCbrt(
+    const spanL240_in = safeCbrt(
       (384 * E_psi * fastening.I_in4) / (5 * linearService_pli * deflDen)
     );
 
-    const maxSpan_in = safeMin(clearLimit_in, asdResult_in);
+    const spanAsd_m = spanAsd_in * IN_TO_M;
+    const spanL240_m = spanL240_in * IN_TO_M;
+    const governingSpan_m = safeMax(spanAsd_m, spanL240_m);
+    const controlSpan_m = getControlSpanM(
+      roofType,
+      roofSlopeRange,
+      CONTROL_POSITION_BY_CASE[key],
+      controlSpanCountry
+    );
+    const finalSpan_m = Number.isFinite(governingSpan_m)
+      ? Math.min(governingSpan_m, controlSpan_m)
+      : Number.NaN;
 
-    const maxSpan_mm = maxSpan_in * 25.4;
-    const maxSpan_m = maxSpan_mm / 1000;
+    const reactionAsd_lb = (linearService_pli * spanAsd_in) / 2;
+    const reactionAsd_kg = reactionAsd_lb / KG_TO_LB;
 
-    const reaction_lb = (linearService_pli * maxSpan_in) / 2;
-    const reaction_kg = reaction_lb / KG_TO_LB;
+    const reactionL240_lb = (linearStress_pli * spanL240_in) / 2;
+    const reactionL240_kg = reactionL240_lb / KG_TO_LB;
 
-    const efforts_lb = (linearStress_pli * maxSpan_in) / 2;
-    const efforts_kg = efforts_lb / KG_TO_LB;
+    const finalSpan_in = finalSpan_m / IN_TO_M;
+    const upliftPerAttachment_kg = (finalSpan_in * linearService_pli) / KG_TO_LB;
 
     return {
       key,
       wind_uplift_lb: load_lb,
       asd_wind_psf: asdWind_psf,
 
-      worst_down_check_psf: worstDownCheck_psf,
+      worst_down_check_psf: worstDownCheckCase_psf,
 
       service_pressure_asd_deflection_psf: servicePressure_psf,
       pressure_asd_efforts_psf: pressureEfforts_psf,
@@ -285,22 +529,31 @@ export function calcDomo(input: MountingInput): MountingResult {
       linear_load_stresses_plf: linearStress_plf,
       linear_load_stresses_pli: linearStress_pli,
 
-      asd_result_in: asdResult_in,
-      clear_limit_by_deflection_in: clearLimit_in,
+      span_asd_in: spanAsd_in,
+      span_asd_m: spanAsd_m,
+      span_L240_in: spanL240_in,
+      span_L240_m: spanL240_m,
+      span_governing_m: governingSpan_m,
+      control_span_m: controlSpan_m,
 
-      maximum_design_span_in: maxSpan_in,
-      maximum_design_span_mm: maxSpan_mm,
-      maximum_design_span_m: maxSpan_m,
+      final_span_m: finalSpan_m,
 
-      useful_reaction_lb: reaction_lb,
-      useful_reaction_kg: reaction_kg,
+      reaction_asd_lb: reactionAsd_lb,
+      reaction_asd_kg: reactionAsd_kg,
 
-      uses_L_ruler_efforts_lb: efforts_lb,
-      uses_L_ruler_efforts_kg: efforts_kg,
+      reaction_L240_lb: reactionL240_lb,
+      reaction_L240_kg: reactionL240_kg,
+
+      uplift_per_attachment_kg: upliftPerAttachment_kg,
+      downforce_per_attachment_kg: Number.NaN,
+      shear_per_attachment_kg: Number.NaN,
     };
   }
 
-  const spanAnalysisCases: SpanAnalysisCase[] = [
+  const shearAsdWind_psf = worstShear_lb / moduleArea_ft2;
+  const shearWorstDownCheck_psf = shearAsdWind_psf;
+
+  const spanAnalysisCasesRaw: SpanAnalysisCase[] = [
     computeSpanAnalysisCase("zone_center", windUplift_lb.center),
     computeSpanAnalysisCase("zone_edge", windUplift_lb.edge),
     computeSpanAnalysisCase("zone_corner", windUplift_lb.corner),
@@ -308,7 +561,33 @@ export function calcDomo(input: MountingInput): MountingResult {
     computeSpanAnalysisCase("exposed_edge", windUpliftExposed_lb.edge),
     computeSpanAnalysisCase("exposed_corner", windUpliftExposed_lb.corner),
     computeSpanAnalysisCase("downforce_worst", worstDown_lb),
+    computeSpanAnalysisCase("shear_worst", worstShear_lb, {
+      worstDownCheck_psf: shearWorstDownCheck_psf,
+    }),
   ];
+
+  const byKeyRaw = (k: SpanCaseKey) => spanAnalysisCasesRaw.find((c) => c.key === k);
+  const downWorstRaw = byKeyRaw("downforce_worst");
+  const shearWorstRaw = byKeyRaw("shear_worst");
+  if (!downWorstRaw) throw new Error("Internal error: missing downforce span analysis case.");
+  if (!shearWorstRaw) throw new Error("Internal error: missing shear span analysis case.");
+
+  const downforceLinearStress_pli = downWorstRaw.linear_load_stresses_pli;
+  const shearLinearStress_pli = shearWorstRaw.linear_load_stresses_pli;
+
+  const spanAnalysisCases: SpanAnalysisCase[] = spanAnalysisCasesRaw.map((c) => {
+    if (c.key === "downforce_worst" || c.key === "shear_worst") {
+      return c;
+    }
+    const finalSpan_in = c.final_span_m / IN_TO_M;
+    const downforcePerAttachment_kg = (finalSpan_in * downforceLinearStress_pli) / KG_TO_LB;
+    const shearPerAttachment_kg = (finalSpan_in * shearLinearStress_pli) / KG_TO_LB;
+    return {
+      ...c,
+      downforce_per_attachment_kg: downforcePerAttachment_kg,
+      shear_per_attachment_kg: shearPerAttachment_kg,
+    };
+  });
 
   const byKey = (k: SpanCaseKey) => spanAnalysisCases.find((c) => c.key === k);
   const zoneCenter = byKey("zone_center");
@@ -325,12 +604,12 @@ export function calcDomo(input: MountingInput): MountingResult {
 
   // Summary table inputs
   const span_m = {
-    center_zone: zoneCenter.maximum_design_span_m,
-    edge_zone: zoneEdge.maximum_design_span_m,
-    corner_zone: zoneCorner.maximum_design_span_m,
-    center_exposed: expCenter.maximum_design_span_m,
-    edge_exposed: expEdge.maximum_design_span_m,
-    corner_exposed: expCorner.maximum_design_span_m,
+    center_zone: zoneCenter.final_span_m,
+    edge_zone: zoneEdge.final_span_m,
+    corner_zone: zoneCorner.final_span_m,
+    center_exposed: expCenter.final_span_m,
+    edge_exposed: expEdge.final_span_m,
+    corner_exposed: expCorner.final_span_m,
   };
 
   const windPressurePa_zone = {
@@ -345,42 +624,27 @@ export function calcDomo(input: MountingInput): MountingResult {
   };
 
   const upliftPerAttachmentKg_zone = {
-    center: zoneCenter.useful_reaction_kg,
-    edge: zoneEdge.useful_reaction_kg,
-    corner: zoneCorner.useful_reaction_kg,
+    center: zoneCenter.uplift_per_attachment_kg,
+    edge: zoneEdge.uplift_per_attachment_kg,
+    corner: zoneCorner.uplift_per_attachment_kg,
   };
   const upliftPerAttachmentKg_exposed = {
-    center: expCenter.useful_reaction_kg,
-    edge: expEdge.useful_reaction_kg,
-    corner: expCorner.useful_reaction_kg,
+    center: expCenter.uplift_per_attachment_kg,
+    edge: expEdge.uplift_per_attachment_kg,
+    corner: expCorner.uplift_per_attachment_kg,
   };
 
-  const downforcePerAttachmentKg = downWorst.useful_reaction_kg;
+  const downforcePerAttachmentKg = Number.NaN;
+  const shearPerAttachmentKg = Number.NaN;
 
-  const shearLineLoad_lb_per_ft = deadSnowShear_lb * tributaryWidthPerRail_ft;
-  const shearLineLoad_lb_per_in = shearLineLoad_lb_per_ft / 12;
+  const upliftCap = 351.1;
+  const downforceCap = 351.1;
+  const shearCap = 51;
 
-  const governingSpan_m = Math.max(
-    span_m.center_zone,
-    span_m.edge_zone,
-    span_m.corner_zone,
-    span_m.center_exposed,
-    span_m.edge_exposed,
-    span_m.corner_exposed
-  );
-
-  const shearReaction_lb = (shearLineLoad_lb_per_in * governingSpan_m) / 2;
-  const shearPerAttachmentKg = shearReaction_lb * LB_TO_KG;
-
-  // ✅ DOMO ONLY difference (caps)
-  const upliftCap = 200;
-  const downforceCap = 150;
-  const shearCap = 150;
-
-  function buildValidation(upliftKg: number) {
+  function buildValidation(upliftKg: number, downforceKg: number, shearKg: number) {
     const upliftRatio = upliftKg / upliftCap;
-    const downRatio = downforcePerAttachmentKg / downforceCap;
-    const shearRatio = shearPerAttachmentKg / shearCap;
+    const downRatio = downforceKg / downforceCap;
+    const shearRatio = shearKg / shearCap;
 
     return {
       upliftRatio,
@@ -399,8 +663,8 @@ export function calcDomo(input: MountingInput): MountingResult {
       span_m: span_m.center_zone,
       windPressure_Pa: windPressurePa_zone.center,
       upliftKg: upliftPerAttachmentKg_zone.center,
-      downforceKg: downforcePerAttachmentKg,
-      shearKg: shearPerAttachmentKg,
+      downforceKg: zoneCenter.downforce_per_attachment_kg,
+      shearKg: zoneCenter.shear_per_attachment_kg,
     },
     {
       area: "Center",
@@ -408,8 +672,8 @@ export function calcDomo(input: MountingInput): MountingResult {
       span_m: span_m.center_exposed,
       windPressure_Pa: windPressurePa_exposed.center,
       upliftKg: upliftPerAttachmentKg_exposed.center,
-      downforceKg: downforcePerAttachmentKg,
-      shearKg: shearPerAttachmentKg,
+      downforceKg: expCenter.downforce_per_attachment_kg,
+      shearKg: expCenter.shear_per_attachment_kg,
     },
     {
       area: "Edge",
@@ -417,8 +681,8 @@ export function calcDomo(input: MountingInput): MountingResult {
       span_m: span_m.edge_zone,
       windPressure_Pa: windPressurePa_zone.edge,
       upliftKg: upliftPerAttachmentKg_zone.edge,
-      downforceKg: downforcePerAttachmentKg,
-      shearKg: shearPerAttachmentKg,
+      downforceKg: zoneEdge.downforce_per_attachment_kg,
+      shearKg: zoneEdge.shear_per_attachment_kg,
     },
     {
       area: "Edge",
@@ -426,8 +690,8 @@ export function calcDomo(input: MountingInput): MountingResult {
       span_m: span_m.edge_exposed,
       windPressure_Pa: windPressurePa_exposed.edge,
       upliftKg: upliftPerAttachmentKg_exposed.edge,
-      downforceKg: downforcePerAttachmentKg,
-      shearKg: shearPerAttachmentKg,
+      downforceKg: expEdge.downforce_per_attachment_kg,
+      shearKg: expEdge.shear_per_attachment_kg,
     },
     {
       area: "Corner",
@@ -435,8 +699,8 @@ export function calcDomo(input: MountingInput): MountingResult {
       span_m: span_m.corner_zone,
       windPressure_Pa: windPressurePa_zone.corner,
       upliftKg: upliftPerAttachmentKg_zone.corner,
-      downforceKg: downforcePerAttachmentKg,
-      shearKg: shearPerAttachmentKg,
+      downforceKg: zoneCorner.downforce_per_attachment_kg,
+      shearKg: zoneCorner.shear_per_attachment_kg,
     },
     {
       area: "Corner",
@@ -444,13 +708,13 @@ export function calcDomo(input: MountingInput): MountingResult {
       span_m: span_m.corner_exposed,
       windPressure_Pa: windPressurePa_exposed.corner,
       upliftKg: upliftPerAttachmentKg_exposed.corner,
-      downforceKg: downforcePerAttachmentKg,
-      shearKg: shearPerAttachmentKg,
+      downforceKg: expCorner.downforce_per_attachment_kg,
+      shearKg: expCorner.shear_per_attachment_kg,
     },
   ];
 
   const validationRows = rows.map((r) => {
-    const v = buildValidation(r.upliftKg);
+    const v = buildValidation(r.upliftKg, r.downforceKg, r.shearKg);
     return {
       area: r.area,
       zone: r.zone,
@@ -547,6 +811,9 @@ export function calcDomo(input: MountingInput): MountingResult {
       panelSL_lb,
 
       roofSlopeRange,
+      roofSlopeKey,
+      roofType,
+      controlSpanCountry,
       roofSlopeDeg_min: minDeg,
       roofSlopeDeg_max: maxDeg,
       roofSlopeRad_min,
@@ -599,13 +866,12 @@ export function calcDomo(input: MountingInput): MountingResult {
           shearCap,
         },
         shearDerivation: {
-          deadSnowShear_lb,
-          tributaryWidthPerRail_ft,
-          shearLineLoad_lb_per_ft,
-          shearLineLoad_lb_per_in,
-          governingSpan_m,
-          shearReaction_lb,
-          shearPerAttachmentKg,
+          shearLoad_lb: worstShear_lb,
+          shear_asd_wind_psf: shearWorstRaw.asd_wind_psf,
+          shear_worst_down_check_psf: shearWorstRaw.worst_down_check_psf,
+          shear_pressure_efforts_psf: shearWorstRaw.pressure_asd_efforts_psf,
+          shear_linear_stress_plf: shearWorstRaw.linear_load_stresses_plf,
+          shear_linear_stress_pli: shearWorstRaw.linear_load_stresses_pli,
         },
       },
     },
