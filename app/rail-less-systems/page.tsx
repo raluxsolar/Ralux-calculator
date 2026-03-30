@@ -127,7 +127,7 @@ export default function RailLessSystemsPage() {
 
   const [roofSlope, setRoofSlope] = useState(""); // will be set based on roofType
   const [moduleWeight, setModuleWeight] = useState("35");
-  const [roofThickness, setRoofThickness] = useState("0.4");
+  const [roofThickness, setRoofThickness] = useState("0.45");
   const [attachmentThickness, setAttachmentThickness] = useState("0.7");
 
   const selectedCountry = useMemo(
@@ -392,7 +392,7 @@ export default function RailLessSystemsPage() {
     setWindSpeed("");
     // roofSlope will auto-adjust via effect based on roofType
     setModuleWeight("35");
-    setRoofThickness("0.4");
+    setRoofThickness("0.45");
     setAttachmentThickness("0.7");
     setAttachmentsPerModule({
       z1: "4",
@@ -732,14 +732,13 @@ export default function RailLessSystemsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {[
-                        "0.4",
+                        "0.45",
                         "0.5",
                         "0.55",
                         "0.63",
                         "0.75",
                         "0.88",
                         "1",
-                        "1.13",
                         "1.25",
                       ].map((opt) => (
                         <SelectItem key={opt} value={opt}>
