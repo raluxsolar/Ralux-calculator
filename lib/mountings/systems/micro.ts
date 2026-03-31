@@ -10,7 +10,7 @@ const LB_TO_KG = 0.45359237;
 
 // ✅ Base starting attachments for Micro (shear/downforce use this)
 const BASE_ATTACHMENTS_PER_MODULE = 4;
-const SCREWS_PER_ATTACHMENT = 4;
+const SCREWS_PER_ATTACHMENT = 2;
 
 type Pos = "Center" | "Edge" | "Corner" | "Downforce";
 type Zone = "center" | "edge" | "corner";

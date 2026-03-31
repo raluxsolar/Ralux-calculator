@@ -2,10 +2,23 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectTrigger,
@@ -103,6 +116,7 @@ export default function DualRailSystemsPage() {
   // PROJECT INFORMATION
   const [country, setCountry] = useState("");
   const [location, setLocation] = useState("");
+  const [locationPopoverOpen, setLocationPopoverOpen] = useState(false);
 
   // dual-rail systems
   const [mountingSystem, setMountingSystem] = useState("Hanger System");
@@ -467,18 +481,53 @@ export default function DualRailSystemsPage() {
                   <Label>
                     Location <span className="text-[#FF5600]">*</span>
                   </Label>
-                  <Select value={location} onValueChange={setLocation}>
-                    <SelectTrigger className="h-11 rounded-full">
-                      <SelectValue placeholder="Select Location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cityOptions.map((opt) => (
-                        <SelectItem key={opt.cityCode} value={opt.cityCode}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover
+                    open={locationPopoverOpen}
+                    onOpenChange={setLocationPopoverOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        disabled={!country}
+                        className="w-full justify-between h-11 rounded-full text-left font-normal"
+                      >
+                        {location
+                          ? cityOptions.find((city) => city.cityCode === location)
+                              ?.label
+                          : "Select Location"}
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 border-[#454545] bg-[#141414]">
+                      <Command className="bg-[#141414] text-[#BFBFBF]">
+                        <CommandInput placeholder="Search city..." />
+                        <CommandEmpty>No city found.</CommandEmpty>
+                        <CommandList className="bg-[#141414]">
+                          {cityOptions.map((opt) => (
+                            <CommandItem
+                              className="text-[#BFBFBF]"
+                              key={opt.cityCode}
+                              onSelect={() => {
+                                setLocation(opt.cityCode);
+                                setLocationPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  location === opt.cityCode
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {opt.label}
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div>

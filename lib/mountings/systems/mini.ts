@@ -11,8 +11,8 @@ const LB_TO_KG = 0.45359237;
 // ✅ Base starting attachments for Mini (shear/downforce use this)
 const BASE_ATTACHMENTS_PER_MODULE = 4;
 
-// ✅ Mini Rail uses 2 screws per attachment (fixed)
-const SCREWS_PER_ATTACHMENT = 2;
+// ✅ Mini Rail uses 4 screws per attachment (fixed)
+const SCREWS_PER_ATTACHMENT = 4;
 
 type Pos = "Center" | "Edge" | "Corner" | "Downforce";
 type Zone = "center" | "edge" | "corner";
